@@ -322,42 +322,54 @@ extension Palindrome {
 }
 
 extension RemoteMigrations {
-    package func withTemporary<T>(perform: (RemoteMigrations) async throws -> T) async throws -> T {
-        // Create a temporary database name
-        let tempDatabase = "\(config.database!)_verify"
+    @inline(__always)
+    package func withTemporary<T>(
+        _ name: String? = nil,
+        perform: (RemoteMigrations) async throws -> T
+    ) async throws -> T {
+        let databaseName = try await self.createDatabase()        
         
-
-        // Create temporary database
-        print("Creating temporary database '\(tempDatabase)'...")
-        let logger = Logger(label: "PostgresNIO")
-        
-        _ = try await self.client.withConnection { connection in
-            try await connection.query(
-                "DROP DATABASE IF EXISTS \(unescaped: tempDatabase)",
-                logger: logger
-            )
-            try await connection.query("CREATE DATABASE \(unescaped: tempDatabase)", logger: logger)
-        }
-
         // Create a copy of database options for the temp database
         var tempConfiguration = config
-        tempConfiguration.database = tempDatabase
+        tempConfiguration.database = databaseName
 
         // Initialize Palindrome with temp database
         let remote = try await RemoteMigrations(config: tempConfiguration)
         
         do {
             let result = try await perform(remote)
-            try await self.cleanup(databaseName: tempDatabase)
+            try await self.cleanup(databaseName: databaseName)
             return result
         } catch {
-            try await self.cleanup(databaseName: tempDatabase)
+            try await self.cleanup(databaseName: databaseName)
             throw error
         }
     }
 
+    // Creates a temporary database
+    func createDatabase() async throws -> String {
+        let databaseName = "_palindrome_temporary_\(UUID().uuidString.prefix(8))"
+            .replacing(/[^a-z,_,0-9]/, with: "_")
+            .trimmingCharacters(in: ["/"])
+        
+
+        // Create temporary database
+        print("Creating temporary database '\(databaseName)'...")
+        let logger = Logger(label: "PostgresNIO")
+        
+        _ = try await self.client.withConnection { connection in
+            try await connection.query(
+                "DROP DATABASE IF EXISTS \(unescaped: databaseName)",
+                logger: logger
+            )
+            try await connection.query("CREATE DATABASE \(unescaped: databaseName)", logger: logger)
+        }
+        
+        return databaseName
+    }
+    
     /// Cleans up the temporary database
-    fileprivate func cleanup(databaseName: String) async throws {
+    func cleanup(databaseName: String) async throws {
         _ = try await client.withConnection { connection in
             // Terminate all connections to the temporary database
             try await connection.query("""

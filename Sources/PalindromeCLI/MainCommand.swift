@@ -33,6 +33,4 @@ struct MainCommand: AsyncParsableCommand {
 
     @OptionGroup(title: "Database Options")
     var database: DatabaseOptions
-
-    mutating func run() throws {}
 }

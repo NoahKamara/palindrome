@@ -47,35 +47,14 @@ struct TestDatabase {
         self.config(database: self.databaseName)
     }
 
+    @inline(__always)
     func withTestDatabase(
         method: String = #function,
-        perform: (PostgresClient.Configuration) async throws -> Void
+        perform: (RemoteMigrations) async throws -> Void
     ) async throws {
-        let cleanMethod = method
-            .replacing(/[^a-z,_,0-9]/, with: "_")
-            .trimmingCharacters(in: ["/"])
-
-        let databaseName = "test_\(cleanMethod)_\(UUID().uuidString.prefix(8))"
-            .lowercased()
-
-        let logger = Logger(label: databaseName)
-
-        let client = PostgresClient(configuration: globalConfig, backgroundLogger: logger)
-
-        Task { await client.run() }
-
-        _ = try await client.withConnection { connection in
-            try await connection.query("CREATE DATABASE \(unescaped: databaseName)", logger: logger)
+        let global = try await RemoteMigrations(config: globalConfig)
+        try await global.withTemporary("test_\(method)_\(UUID().uuidString.prefix(8))") { migrations in
+            try await perform(migrations)
         }
-
-        do {
-            let tempConfig = self.config(database: databaseName)
-            try await perform(tempConfig)
-        } catch {
-            try await client.query("DROP DATABASE \(unescaped: databaseName)", logger: logger)
-            throw error
-        }
-
-        try await client.query("DROP DATABASE \(unescaped: databaseName)", logger: logger)
     }
 }

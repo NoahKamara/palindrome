@@ -15,11 +15,11 @@ struct PalindromeTests {
 
     @Test("Should initialize and create migrations table")
     func initialize() async throws {
-        try await self.db.withTestDatabase { config in
+        try await self.db.withTestDatabase { remote in
             let tempDir = try TemporaryDirectory.create()
             defer { try? tempDir.delete() }
 
-            let palindrome = try await Palindrome(config: config, migrationsPath: tempDir.path)
+            let palindrome = try await Palindrome(remote: remote, local: .init(using: tempDir))
             _ = try await palindrome.remote.list()
             _ = try await palindrome.local.list()
         }
@@ -27,7 +27,7 @@ struct PalindromeTests {
 
     //    @Test("Should show correct migration state")
     //    func testState() async throws {
-    //        try await db.withTestDatabase { config in
+    //        try await db.withTestDatabase { remote in
     //            let tempDir = try TemporaryDirectory.create()
     //            defer { try? tempDir.delete() }
     //
@@ -65,7 +65,7 @@ struct PalindromeTests {
 
     //    @Test("Should detect migration conflicts")
     //    func testMigrationConflicts() async throws {
-    //        try await db.withTestDatabase { config in
+    //        try await db.withTestDatabase { remote in
     //            let tempDir = try TemporaryDirectory.create()
     //            defer { try? tempDir.delete() }
     //
@@ -152,12 +152,12 @@ struct PalindromStateTests {
 
     @Test
     func empty() async throws {
-        try await self.db.withTestDatabase { config in
+        try await self.db.withTestDatabase { remote in
             let tempDir = try TemporaryDirectory.create()
             defer { try? tempDir.delete() }
 
-            let palindrome = try await Palindrome(config: config, migrationsPath: tempDir.path)
-
+            let palindrome = try Palindrome(remote: remote, local: .init(using: tempDir))
+            
             // Verify initial state
             let state = try await palindrome.state()
             #expect(state.migrations.isEmpty)
@@ -168,7 +168,7 @@ struct PalindromStateTests {
 
     @Test
     func pending() async throws {
-        try await self.db.withTestDatabase { config in
+        try await self.db.withTestDatabase { remote in
             let tempDir = try TemporaryDirectory.create()
             defer { try? tempDir.delete() }
 
@@ -181,7 +181,7 @@ struct PalindromStateTests {
 
             try tempDir.write([expectedMigration])
 
-            let palindrome = try await Palindrome(config: config, migrationsPath: tempDir.path)
+            let palindrome = try Palindrome(remote: remote, local: .init(using: tempDir))
 
             // Verify initial state
             let state = try await palindrome.state()
@@ -207,7 +207,7 @@ struct PalindromStateTests {
 
     ])
     func conflict(change: MigrationState.Status.Change, localMigration: Migration) async throws {
-        try await self.db.withTestDatabase { config in
+        try await self.db.withTestDatabase { remote in
             let tempDir = try TemporaryDirectory.create()
             defer { try? tempDir.delete() }
 
@@ -228,7 +228,7 @@ struct PalindromStateTests {
 
             try tempDir.write([localMigration])
 
-            let palindrome = try await Palindrome(config: config, migrationsPath: tempDir.path)
+            let palindrome = try Palindrome(remote: remote, local: .init(using: tempDir))
             for migration in appliedMigrations {
                 print("apply")
                 try await palindrome.remote.apply(migration)

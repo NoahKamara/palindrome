@@ -72,26 +72,31 @@ package final class RemoteMigrations: Sendable {
 
         print("Applying migration - index: \(migration.index), name: '\(migration.name)'")
 
-        try await self.client.withTransaction(logger: logger) { connection in
-            // Split the migration SQL into individual statements
-            let statements = migration.apply
-                .split(separator: ";")
-                .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty }
+        do {
+            try await self.client.withTransaction(logger: logger) { connection in
+                // Split the migration SQL into individual statements
+                let statements = migration.apply
+                    .split(separator: ";")
+                    .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty }
 
-            // Execute each statement separately
-            for statement in statements {
-                try await connection.query(PostgresQuery(stringLiteral: statement), logger: logger)
+                // Execute each statement separately
+                for statement in statements {
+                    try await connection.query(PostgresQuery(stringLiteral: statement), logger: logger)
+                }
+
+                // Record the migration
+                let query: PostgresQuery = """
+                INSERT INTO palindrome_migrations (index, name, apply, revert)
+                VALUES (\(Int(migration.index)), \(migration.name), \(migration.apply), \(migration
+                    .revert
+                ))
+                """
+                try await connection.query(query, logger: logger)
             }
-
-            // Record the migration
-            let query: PostgresQuery = """
-            INSERT INTO palindrome_migrations (index, name, apply, revert)
-            VALUES (\(Int(migration.index)), \(migration.name), \(migration.apply), \(migration
-                .revert
-            ))
-            """
-            try await connection.query(query, logger: logger)
+        } catch {
+            print(String(reflecting: error))
+            throw error
         }
     }
 
