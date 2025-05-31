@@ -138,6 +138,21 @@ package final class RemoteMigrations: Sendable {
         return migrations.dropLast().last?.id
     }
 
+    /// Reverts migrations down to and including the target migration
+    func revert(count: Int = 1) async throws -> MigrationID? {
+        let migrations = try await list().reversed()
+
+        var head = migrations.last?.id
+
+        for migration in migrations.suffix(count) {
+            print("Reverting migration - index: \(migration.index), name: '\(migration.name)'")
+            head = try await self.revert()
+        }
+        return head
+    }
+
+    
+    /// Reverts migrations down to and including the target migration
     func revert(to identifier: MigrationID) async throws {
         let migrations = try await list().reversed()
 

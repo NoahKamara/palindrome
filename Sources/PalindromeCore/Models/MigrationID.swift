@@ -4,11 +4,11 @@
 //  Copyright © 2024 Noah Kamara.
 //
 
-package struct MigrationID: Sendable, Hashable, CustomStringConvertible {
-    package let index: Int
-    package let name: String
+public struct MigrationID: Sendable, Hashable, CustomStringConvertible {
+    public let index: Int
+    public let name: String
 
-    package var fileName: String {
+    public var fileName: String {
         String(format: "%06d", self.index) + "_" + self.name + ".sql"
     }
 
@@ -25,7 +25,7 @@ package struct MigrationID: Sendable, Hashable, CustomStringConvertible {
         self.init(index: Int(match.output.1)!, name: String(match.output.2))
     }
 
-    package var description: String {
+    public var description: String {
         self.fileName
     }
 }
