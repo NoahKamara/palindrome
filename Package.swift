@@ -4,18 +4,39 @@
 import PackageDescription
 
 let package = Package(
-    name: "palindrome",
+    name: "Palindrome",
+    platforms: [.macOS(.v13)],
+    products: [
+        .executable(name: "palindrome", targets: ["PalindromeCLI"]),
+        .library(name: "PalindromeCore", targets: ["PalindromeCore"]),
+    ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.2.0"),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.0"),
+        .package(url: "https://github.com/vapor/postgres-nio", from: "1.26.1"),
+        .package(url: "https://github.com/vapor/console-kit", from: "4.15.2"),
     ],
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
         .executableTarget(
-            name: "palindrome",
+            name: "PalindromeCLI",
             dependencies: [
+                "PalindromeCore",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
-            ]
+                .product(name: "PostgresNIO", package: "postgres-nio"),
+                .product(name: "ConsoleKit", package: "console-kit"),
+            ],
+            swiftSettings: [.enableUpcomingFeature("slash")]
+        ),
+        .target(
+            name: "PalindromeCore",
+            dependencies: [
+                .product(name: "PostgresNIO", package: "postgres-nio"),
+                .product(name: "ConsoleKit", package: "console-kit"),
+            ],
+            swiftSettings: [.enableUpcomingFeature("slash")]
+        ),
+        .testTarget(
+            name: "PalindromeCoreTests",
+            dependencies: ["PalindromeCore"]
         ),
     ]
 )
